@@ -21,18 +21,20 @@ class FastaParser(argparse.ArgumentParser):
         self.epilog = epilog
 
         parsing_types = self.add_argument_group("Parsing options", "Options for parsing a fasta file")
-        parsing_types.add_argument("-r", type=argparse.FileType("r"), nargs=1, help="Read a file (default)")
+        parsing_types.add_argument("-r", type=argparse.FileType("r"), nargs=1, help="Read a file (default)", required=True)
         parsing_types.add_argument("-w", type=argparse.FileType("+"), nargs=1, help="Read a file and write to it")
         parsing_types.add_argument("-c", type=argparse.FileType("x"), nargs=1, metavar=("W"), help="Create a new file")
         parsing_types.add_argument("-d", type=argparse.FileType("r"), nargs=1, help="display the file")
 
 
         functions = self.add_argument_group("Functions", "Functions to do something with parsed data")
-        functions.add_argument("--seq-length", type=int, nargs=1, dest="length", help="Find the length of a given sequence (0 for all sequences, positive integer for a singular sequence and a negative integer for sequences up to X)")
-        functions.add_argument("--seq-amount", action="store_true", dest="amount", help="Find the amount of sequences")
-        functions.add_argument("--seq-starts-with", type=str, nargs=1, dest="starts_with", help="Check if a sequence starts with a given character")
-        functions.add_argument("--seq-find", type=str, nargs="+", dest="find", help="Find the occurences of specific strings")
-        functions.add_argument("--seq-find-percentage", nargs=1, dest="find_percentage", metavar="FIND", help="Find the occurences (in %%) of specific strings")
+        functions.add_argument("--length", type=int, nargs=1, dest="length", help="Find the length of a given sequence (0 for all sequences, positive integer for a singular sequence and a negative integer for sequences up to X)")
+        functions.add_argument("--amount", action="store_true", dest="amount", help="Find the amount of sequences")
+        functions.add_argument("--starts-with", type=str, nargs=1, dest="starts_with", help="Check if a sequence starts with a given character")
+        functions.add_argument("--find", type=str, nargs="+", dest="find", help="Find the occurences of specific strings")
+        functions.add_argument("--find-percentage", nargs=1, dest="find_percentage", metavar="FIND", help="Find the occurences (in %%) of specific strings")
+        functions.add_argument("--filter", type=str, nargs=1, metavar="FILTER", help="Filter out a given string")
+        functions.add_argument("--filter-right", type=str, nargs=1, metavar="FILTER", help="Filter out a given string, starting from the right")
 
         self.args = self.parse_args()
         self.handle_args(self.args)
@@ -47,11 +49,13 @@ class FastaParser(argparse.ArgumentParser):
             if args.amount:
                 print(len(sequences))
             elif args.starts_with:
-                data = self.find_char(args, sequences, args.starts_with[0].upper())
+                data = self.find_char(args, sequences, args.starts_with)
             elif args.find:
                 data = self.find_char(args, sequences, args.find)
             elif args.find_percentage:
-                data = self.find_char(args, sequences, args.find_percentage[0].upper())  
+                data = self.find_char(args, sequences, args.find_percentage)  
+            elif args.filter or args.filter_right:
+                data = self.filter(args, sequences, args.filter)
 
         if args.w:
             print("readwrite mode")
@@ -96,6 +100,7 @@ class FastaParser(argparse.ArgumentParser):
                         sequences.append(seq)
                         header = ""
                         body = ""
+
             elif arg.name.endswith(".fna"):
                 count = 0
                 for i in lines:
@@ -168,7 +173,26 @@ class FastaParser(argparse.ArgumentParser):
         for i in final_status:
             print(i)
 
-        return result         
+        return result
+
+    def filter(self, arg, sequences:list[str], chars:list[str]) -> list[str]:
+        result = []
+        for c in chars:
+            char = c.upper()
+            if char:
+                for i in sequences:
+                    seq = list(i.values())[0]
+
+                    if arg.filter and seq.find(char):
+                        cut_seq = seq.split(char)
+                    elif arg.filter_right:
+                        cut_seq = seq.rsplit(char)        
+                        
+
+                    result.append(("".join(cut_seq)+"\n"))
+
+        print(result)
+        return result
 
 if __name__ == "__main__": # ensure the file runs as a script
     FastaParser(prog=programName, usage=programUsage, description=programDesc, epilog=programEpilog) # create the the command line interactions
