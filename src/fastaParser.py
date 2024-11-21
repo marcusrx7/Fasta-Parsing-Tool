@@ -21,14 +21,18 @@ class FastaParser(argparse.ArgumentParser):
         self.epilog = epilog
 
         parsing_types = self.add_argument_group("Parsing options", "Options for parsing a fasta file")
-        parsing_types.add_argument("-r", type=argparse.FileType("r"), nargs=1, help="Read a file (default)", required=True)
-        parsing_types.add_argument("-w", type=argparse.FileType("+"), nargs=1, help="Read a file and write to it")
-        parsing_types.add_argument("-c", type=argparse.FileType("x"), nargs=1, metavar=("W"), help="Create a new file")
-        parsing_types.add_argument("-d", type=argparse.FileType("r"), nargs=1, help="display the file")
+
+        required_read = parsing_types.add_mutually_exclusive_group(required=True)
+        required_read.add_argument("-r", type=argparse.FileType("r"), nargs=1, help="Read a file (default)")
+        required_read.add_argument("-d", type=argparse.FileType("r"), nargs=1, help="display the file")
+
+        required_write = parsing_types.add_mutually_exclusive_group(required=False)
+        required_write.add_argument("-w", type=argparse.FileType("+"), nargs=1, help="Read a file and write to it")
+        required_write.add_argument("-c", type=argparse.FileType("x"), nargs=1, metavar=("W"), help="Create a new file and write to it")
 
 
         functions = self.add_argument_group("Functions", "Functions to do something with parsed data")
-        functions.add_argument("--length", type=int, nargs=1, dest="length", help="Find the length of a given sequence (0 for all sequences, positive integer for a singular sequence and a negative integer for sequences up to X)")
+        functions.add_argument("--length", type=int, nargs=1, dest="length", help="Find the length of a given sequence (0 for all , positive integer to specify a line and a negative integer to specify up to a line)")
         functions.add_argument("--amount", action="store_true", dest="amount", help="Find the amount of sequences")
         functions.add_argument("--starts-with", type=str, nargs=1, dest="starts_with", help="Check if a sequence starts with a given character")
         functions.add_argument("--find", type=str, nargs="+", dest="find", help="Find the occurences of specific strings")
@@ -48,6 +52,24 @@ class FastaParser(argparse.ArgumentParser):
 
             if args.amount:
                 print(len(sequences))
+            elif args.length:
+
+                index = args.length[0] - 1
+                
+                if args.length[0] == 0:
+                    for i in sequences:
+                        seq = list(i.values())[0]
+                        print(list(i.keys())[0], "contains", len(seq), "nucleotides")
+                elif args.length[0] > 0:
+                    print(list(sequences[index].keys())[0], "contains", len(list(sequences[index].values())[0]), "nucleotides")
+                elif args.length[0] < 0:
+                    absolute = abs(index)
+                    count = 0
+                    for i in sequences:
+                        count += 1
+                        if count < absolute:
+                            print(list(i.keys())[0], "contains", len(list(i.values())[0]), "nucleotides")
+
             elif args.starts_with:
                 data = self.find_char(args, sequences, args.starts_with)
             elif args.find:
@@ -112,7 +134,7 @@ class FastaParser(argparse.ArgumentParser):
                     else:
                         body = line
 
-                    if header!= "" and body != "":
+                    if body != "":
                         header_line = header + " line " + str(count) + "\n"
                         seq = {header_line: body}
                         sequences.append(seq)
