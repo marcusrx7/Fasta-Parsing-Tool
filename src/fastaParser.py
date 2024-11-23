@@ -12,7 +12,7 @@ programEpilog = "example: %(prog)s file.fna -r --seq-find GC"
 
 class FastaParser(argparse.ArgumentParser):
 
-    def __init__(self, prog=None, usage=None, description=None, epilog=None, parents=[], formatter_class=argparse.HelpFormatter, prefix_chars="-", fromfile_prefix_chars=None, argument_default=None, conflict_handler="error", add_help=True, allow_abbrev=True, exit_on_error=False):
+    def __init__(self, prog=None, usage=None, description=None, epilog=None, parents=[], formatter_class=argparse.RawTextHelpFormatter, prefix_chars="-", fromfile_prefix_chars=None, argument_default=None, conflict_handler="error", add_help=True, allow_abbrev=False, exit_on_error=False):
         # Initialize the parent class (argparse.ArgumentParser)
         super().__init__(prog, usage, description, epilog, parents, formatter_class, prefix_chars, fromfile_prefix_chars, argument_default, conflict_handler, add_help, allow_abbrev, exit_on_error)
 
@@ -27,23 +27,23 @@ class FastaParser(argparse.ArgumentParser):
 
         # Mutually exclusive group for required read options
         required_read = parsing_types.add_mutually_exclusive_group(required=True)
-        required_read.add_argument("-r", type=argparse.FileType("r"), nargs=1, help="Read a file (default)")
-        required_read.add_argument("-d", type=argparse.FileType("r"), nargs=1, help="Display the file")
+        required_read.add_argument("-r", "--read", type=argparse.FileType("r"), nargs=1, help="Read a file (default)")
+        required_read.add_argument("-d", "--display", type=argparse.FileType("r"), nargs=1, help="Display the file")
 
         # Mutually exclusive group for optional write options
         required_write = parsing_types.add_mutually_exclusive_group(required=False)
-        required_write.add_argument("-w", type=argparse.FileType("+"), nargs=1, help="Read a file and write to it")
-        required_write.add_argument("-c", type=argparse.FileType("x"), nargs=1, metavar=("W"), help="Create a new file and write to it")
+        required_write.add_argument("-w", "--write", type=argparse.FileType("+"), nargs=1, help="Read a file and write to it")
+        required_write.add_argument("-c", "--create", type=argparse.FileType("x"), nargs=1, metavar="W", help="Create a new file and write to it")
 
         # Define function arguments
         functions = self.add_argument_group("Functions", "Functions to do something with parsed data")
-        functions.add_argument("--length", type=int, nargs=1, dest="length", help="Find the length of a given sequence (0 for all, positive integer to specify a line and a negative integer to specify up to a line)")
-        functions.add_argument("--amount", action="store_true", dest="amount", help="Find the amount of sequences")
-        functions.add_argument("--starts-with", type=str, nargs=1, dest="starts_with", help="Check if a sequence starts with a given character")
-        functions.add_argument("--find", type=str, nargs="+", dest="find", help="Find the occurrences of specific strings")
-        functions.add_argument("--find-percentage", nargs=1, dest="find_percentage", metavar="FIND", help="Find the occurrences (in %) of specific strings")
-        functions.add_argument("--filter", type=str, nargs=1, metavar="FILTER", help="Filter out a given string")
-        functions.add_argument("--filter-right", type=str, nargs=1, metavar="FILTER", help="Filter out a given string, starting from the right")
+        functions.add_argument("-l", "--length", type=int, nargs=1, dest="length", help="Find the length of a given sequence (0 for all, positive integer to specify a line and a negative integer to specify up to a line)")
+        functions.add_argument("-a", "--amount", action="store_true", dest="amount", help="Find the amount of sequences")
+        functions.add_argument("-s", "--starts-with", type=str, nargs=1, dest="starts_with", help="Check if a sequence starts with a given character")
+        functions.add_argument("-f", "--find", type=str, nargs="+", dest="find", help="Find the occurrences of specific strings")
+        functions.add_argument("-fp", "--find-percentage", nargs=1, dest="find_percentage", metavar="FIND", help="Find the occurrences (in %%) of specific strings")
+        functions.add_argument("-fl", "--filter", type=str, nargs=1, metavar="FILTER", help="Filter out a given string")
+        functions.add_argument("-fr", "--filter-right", type=str, nargs=1, metavar="FILTER", help="Filter out a given string, starting from the right")
 
         # Parse the arguments and handle them
         self.args = self.parse_args()
@@ -53,9 +53,9 @@ class FastaParser(argparse.ArgumentParser):
     def handle_args(self, args):
         print(args, "args", sys.argv, "sys args")  # Print the parsed arguments and system arguments for debugging
 
-        if args.r:  # If the read option is selected
+        if args.read:  # If the read option is selected
             print("read mode")
-            sequences = self.parse_file(args.r[0])  # Parse the file
+            sequences = self.parse_file(args.read[0])  # Parse the file
 
             if args.amount:  # If the amount option is selected
                 print(len(sequences))  # Print the number of sequences
@@ -74,7 +74,7 @@ class FastaParser(argparse.ArgumentParser):
                     for i in sequences:
                         count += 1
                         if count < absolute:
-                            print(list(i.keys())[0], "contains", len(list(i.values())[0]), "nucleotides")
+                            print(list(i.keys())[0], "contains", len(list(i.values())[0]), "characters")
 
             elif args.starts_with:  # If the starts-with option is selected
                 data = self.find_char(args, sequences, args.starts_with)
@@ -85,25 +85,26 @@ class FastaParser(argparse.ArgumentParser):
             elif args.filter or args.filter_right:  # If the filter or filter-right option is selected
                 data = self.filter(args, sequences, args.filter)
 
-        if args.w:  # If the write option is selected
+        if args.write:  # If the write option is selected
             print("readwrite mode")
-        if args.c:  # If the create option is selected
+        if args.create:  # If the create option is selected
             try:
-                with open(args.c[0].name, "x") as newfile:  # Open the file in create mode
+                with open(args.create[0].name, "x") as newfile:  # Open the file in create mode
                     if data:
                         if isinstance(data, list):
                             newfile.writelines(data)  # Write the data to the file
                         else:
                             newfile.write(data)
-                print("successfully wrote data to new file:", args.c[0].name)
+                print("successfully wrote data to new file:", args.create[0].name)
             except FileExistsError:
                 print("File already exists")
             except Exception as error:
                 print("Error writing to file:", error)
 
-        if args.d:  # If the display option is selected
-            sequences = self.parse_file(args.d[0])
-            print(sequences)
+        if args.display:  # If the display option is selected
+            sequences = self.parse_file(args.display[0])
+            for i in sequences:
+                print("\n" + list(i.keys())[0] + "\n" + list(i.values())[0])
 
     
     def parse_file(self, arg) -> list[dict]:
